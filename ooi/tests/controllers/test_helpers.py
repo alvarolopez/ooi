@@ -489,10 +489,13 @@ class TestOpenStackHelper(controller_base.TestController):
         image = uuid.uuid4().hex
         flavor = uuid.uuid4().hex
         user_data = "foo"
+        key_name = "wtfoo"
         ret = self.helper.create_server(None, name, image, flavor,
-                                        user_data=user_data)
+                                        user_data=user_data,
+                                        key_name=key_name)
         self.assertEqual("FOO", ret)
-        m.assert_called_with(None, name, image, flavor, user_data=user_data)
+        m.assert_called_with(None, name, image, flavor, user_data=user_data,
+                             key_name=key_name)
 
     @mock.patch("ooi.api.helpers.exception_from_response")
     @mock.patch.object(helpers.OpenStackHelper, "_get_create_server_req")
@@ -506,6 +509,7 @@ class TestOpenStackHelper(controller_base.TestController):
         image = uuid.uuid4().hex
         flavor = uuid.uuid4().hex
         user_data = "foo"
+        key_name = "wtfoo"
         m_exc.return_value = webob.exc.HTTPInternalServerError()
         self.assertRaises(webob.exc.HTTPInternalServerError,
                           self.helper.create_server,
@@ -513,8 +517,10 @@ class TestOpenStackHelper(controller_base.TestController):
                           name,
                           image,
                           flavor,
-                          user_data=user_data)
-        m.assert_called_with(None, name, image, flavor, user_data=user_data)
+                          user_data=user_data,
+                          key_name=key_name)
+        m.assert_called_with(None, name, image, flavor, user_data=user_data,
+                             key_name=key_name)
         m_exc.assert_called_with(resp)
 
     @mock.patch.object(helpers.OpenStackHelper, "_get_volume_create_req")
@@ -907,6 +913,28 @@ class TestOpenStackHelperReqs(controller_base.TestController):
                                                     user_data=user_data)
         self.assertExpectedReq("POST", path, body, os_req)
 
+    def test_get_os_get_server_create_with_key_name(self):
+        tenant = fakes.tenants["foo"]
+        req = self._build_req(tenant["id"])
+        name = "foo server"
+        image = "bar image"
+        flavor = "baz flavor"
+        key_name = "wtfoo"
+
+        body = {
+            "server": {
+                "name": name,
+                "imageRef": image,
+                "flavorRef": flavor,
+                "key_name": key_name,
+            },
+        }
+
+        path = "/%s/servers" % tenant["id"]
+        os_req = self.helper._get_create_server_req(req, name, image, flavor,
+                                                    key_name=key_name)
+        self.assertExpectedReq("POST", path, body, os_req)
+
     def test_get_os_get_volume_create(self):
         tenant = fakes.tenants["foo"]
         req = self._build_req(tenant["id"])
@@ -960,3 +988,21 @@ class TestOpenStackHelperReqs(controller_base.TestController):
         path = "/%s/servers/%s/action" % (tenant["id"], server)
         os_req = self.helper._get_remove_floating_ip_req(req, server, ip)
         self.assertExpectedReq("POST", path, body, os_req)
+
+    def test_get_os_get_keypair_create(self):
+        tenant = fakes.tenants["foo"]
+        req = self._build_req(tenant["id"])
+        name = "fookey"
+        key_type = "ssh"
+
+        body = {
+            "keypair": {
+                "name": name,
+                "type": key_type
+            }
+        }
+
+        path = "/%s/os-keypairs" % tenant["id"]
+        os_req = self.helper._get_keypair_create_req(req, name, key_type)
+        self.assertExpectedReq("POST", path, body, os_req)
+
